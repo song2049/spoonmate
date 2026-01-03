@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id            Int             @id @default(autoincrement())
+  username      String          @unique
+  password      String
+  name          String
+  email         String
+  createdAt     DateTime        @default(now())
+  SoftwareAsset SoftwareAsset[]
+}
+
+model Department {
+  id     Int             @id @default(autoincrement())
+  name   String          @unique
+  assets SoftwareAsset[]
+}
+
+model Vendor {
+  id           Int     @id @default(autoincrement())
+  name         String  @unique
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  notes        String? @db.Text
+
+  assets    SoftwareAsset[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model SoftwareAsset {
+  id Int @id @default(autoincrement())
+
+  // 필수
+  name         String
+  category     AssetCategory
+  status       AssetStatus   @default(active)
+  expiryDate   DateTime
+  ownerAdminId Int
+
+  owner Admin @relation(fields: [ownerAdminId], references: [id])
+
+  // 선택
+  vendorId Int?
+  vendor   Vendor? @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  departmentId Int?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  purchaseDate DateTime?
+  renewalCycle RenewalCycle?
+  autoRenew    Boolean       @default(false)
+
+  cost         Decimal?     @db.Decimal(12, 2)
+  currency     String       @default("KRW")
+  billingCycle BillingCycle @default(monthly)
+
+  seatsTotal Int?
+  seatsUsed  Int?
+
+  purchaseChannel String?
+  description     String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments AssetAssignment[]
+
+  @@index([expiryDate])
+  @@index([status])
+  @@index([category])
+  @@index([vendorId])
+  @@index([departmentId])
+}
+
+model AssetAssignment {
+  id      Int           @id @default(autoincrement())
+  assetId Int
+  asset   SoftwareAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  userName  String
+  userEmail String?
+
+  assignedAt DateTime  @default(now())
+  returnedAt DateTime?
+
+  notes String?
+
+  @@index([assetId])
+}
+
+enum AssetCategory {
+  collaboration
+  devtool
+  designtool
+  infrastructure
+  security
+  other
+}
+
+enum AssetStatus {
+  active
+  expiring
+  expired
+  terminated
+  on_hold
+}
+
+enum RenewalCycle {
+  m1
+  m3
+  m6
+  y1
+  y3
+  one_time
+}
+
+enum BillingCycle {
+  monthly
+  yearly
+  one_time
+  none
+}
