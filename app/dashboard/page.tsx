@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { fetchSoftwareAssets } from "@/lib/api";
 
 type Asset = {
@@ -22,6 +23,81 @@ function daysLeft(dateStr: string) {
   return diff;
 }
 
+function ddayLabel(d: number) {
+  if (d < 0) return "만료";
+  return `D-${d}`;
+}
+
+function ddayClass(d: number) {
+  if (d < 0) return "text-gray-500";
+  if (d <= 7) return "text-red-600 font-semibold";
+  if (d <= 30) return "text-red-600";
+  if (d <= 90) return "text-orange-600";
+  return "text-green-600";
+}
+
+function PillButton({
+  href,
+  children,
+  variant = "default",
+}: {
+  href: string;
+  children: React.ReactNode;
+  variant?: "default" | "primary";
+}) {
+  const base =
+    "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition border";
+  const styles =
+    variant === "primary"
+      ? "bg-black text-white border-black hover:bg-gray-900"
+      : "bg-white text-gray-900 border-gray-200 hover:bg-gray-50";
+  return (
+    <Link href={href} className={`${base} ${styles}`}>
+      {children}
+    </Link>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: number;
+  tone?: "neutral" | "danger" | "warning" | "success";
+}) {
+  const ring =
+    tone === "danger"
+      ? "ring-red-100"
+      : tone === "warning"
+      ? "ring-orange-100"
+      : tone === "success"
+      ? "ring-green-100"
+      : "ring-gray-100";
+
+  const chip =
+    tone === "danger"
+      ? "bg-red-50 text-red-700"
+      : tone === "warning"
+      ? "bg-orange-50 text-orange-700"
+      : tone === "success"
+      ? "bg-green-50 text-green-700"
+      : "bg-gray-50 text-gray-700";
+
+  return (
+    <div className={`rounded-2xl border border-gray-200 bg-white p-5 ring-1 ${ring}`}>
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-500">{label}</div>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${chip}`}>
+          Live
+        </span>
+      </div>
+      <div className="mt-2 text-3xl font-semibold tracking-tight">{value}</div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [items, setItems] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,9 +106,10 @@ export default function DashboardPage() {
   async function load() {
     try {
       setLoading(true);
+      setError(null);
       const data = await fetchSoftwareAssets();
       setItems(data.items);
-    } catch (e) {
+    } catch {
       setError("자산 목록을 불러오지 못했습니다.");
     } finally {
       setLoading(false);
@@ -40,76 +117,254 @@ export default function DashboardPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("정말 삭제하시겠습니까?")) return;
+    if (!confirm("정말 삭제하시겠습니까? (관련 로그/배정 정보도 함께 정리됩니다)")) return;
 
     const res = await fetch(`/api/assets/software/${id}`, {
       method: "DELETE",
       credentials: "include",
     });
 
-    if (res.ok) {
-      setItems((prev) => prev.filter((i) => i.id !== id));
-    } else {
-      alert("삭제 실패");
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      alert(data?.error ?? `삭제 실패 (status: ${res.status})`);
+      return;
     }
+
+    setItems((prev) => prev.filter((i) => i.id !== id));
   }
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (loading) return <p>로딩 중...</p>;
-  if (error) return <p>{error}</p>;
+  const stats = useMemo(() => {
+    let exp7 = 0;
+    let exp30 = 0;
+    let expired = 0;
+
+    for (const a of items) {
+      const d = daysLeft(a.expiryDate);
+      if (d < 0) expired += 1;
+      else if (d <= 7) exp7 += 1;
+      else if (d <= 30) exp30 += 1;
+    }
+
+    return { total: items.length, exp7, exp30, expired };
+  }, [items]);
+
+  const preview = useMemo(() => {
+    const sorted = [...items].sort(
+      (a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime()
+    );
+    return sorted.slice(0, 10);
+  }, [items]);
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6">
+          <p className="text-sm text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 space-y-4">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                SpoonMate
+              </div>
+              <h1 className="mt-3 text-2xl font-semibold tracking-tight">
+                Dashboard
+              </h1>
+              <p className="mt-1 text-sm text-gray-500">
+                자산 현황 요약과 알림을 한 화면에서 관리합니다.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <PillButton href="/dashboard/notifications">알림</PillButton>
+              <PillButton href="/dashboard/new" variant="primary">
+                등록
+              </PillButton>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+            {error}
+          </div>
+
+          <button
+            onClick={load}
+            className="mt-4 inline-flex items-center rounded-full border border-gray-200 bg-white px-4 py-2 text-sm hover:bg-gray-50"
+          >
+            다시 시도
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: 24 }}>
-      <h1>📦 소프트웨어 자산 관리</h1>
+    <div className="p-6 space-y-6">
+      {/* Brand header */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+              <span className="inline-block h-2 w-2 rounded-full bg-gray-700" />
+              SpoonMate • Asset Ops
+            </div>
 
-      <table
-        border={1}
-        cellPadding={8}
-        cellSpacing={0}
-        style={{ marginTop: 16, width: "100%" }}
-      >
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>자산명</th>
-            <th>벤더</th>
-            <th>부서</th>
-            <th>상태</th>
-            <th>만료일</th>
-            <th>D-day</th>
-            <th>관리</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((a) => {
-            const d = daysLeft(a.expiryDate);
-            return (
-              <tr key={a.id}>
-                <td>{a.id}</td>
-                <td>{a.name}</td>
-                <td>{a.vendor?.name ?? "-"}</td>
-                <td>{a.department?.name ?? "-"}</td>
-                <td>{a.status}</td>
-                <td>{a.expiryDate.slice(0, 10)}</td>
-                <td
-                  style={{
-                    color:
-                      d < 0 ? "gray" : d <= 30 ? "red" : d <= 90 ? "orange" : "green",
-                  }}
-                >
-                  {d < 0 ? "만료" : `D-${d}`}
-                </td>
-                <td>
-                  <button onClick={() => handleDelete(a.id)}>삭제</button>
-                </td>
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight">
+              대시보드
+            </h1>
+            <p className="mt-1 text-sm text-gray-500">
+              자산 현황 요약과 만료 알림을 한눈에. 바로 작업으로 이동하세요.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <PillButton href="/dashboard/notifications">알림</PillButton>
+            <PillButton href="/dashboard/new" variant="primary">
+              등록
+            </PillButton>
+          </div>
+        </div>
+
+        {/* Quick links */}
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Link
+            href="/dashboard/assets/software"
+            className="group rounded-2xl border border-gray-200 p-5 hover:bg-gray-50 transition"
+          >
+            <div className="text-xs font-medium text-gray-500">자산 관리</div>
+            <div className="mt-1 text-lg font-semibold tracking-tight">
+              소프트웨어 자산관리
+            </div>
+            <div className="mt-2 text-sm text-gray-500">
+              목록 조회 · 만료 임박 확인 · 수정/삭제
+            </div>
+            <div className="mt-4 text-sm font-medium text-gray-900 group-hover:underline">
+              열기 →
+            </div>
+          </Link>
+
+          <Link
+            href="/dashboard/notifications"
+            className="group rounded-2xl border border-gray-200 p-5 hover:bg-gray-50 transition"
+          >
+            <div className="text-xs font-medium text-gray-500">알림 센터</div>
+            <div className="mt-1 text-lg font-semibold tracking-tight">
+              만료 알림 로그
+            </div>
+            <div className="mt-2 text-sm text-gray-500">
+              D-7 / D-30 / 만료 상태를 기록 기반으로 추적
+            </div>
+            <div className="mt-4 text-sm font-medium text-gray-900 group-hover:underline">
+              열기 →
+            </div>
+          </Link>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard label="전체 자산" value={stats.total} tone="neutral" />
+        <StatCard label="D-7 임박" value={stats.exp7} tone="danger" />
+        <StatCard label="D-30 예정" value={stats.exp30} tone="warning" />
+        <StatCard label="만료" value={stats.expired} tone="neutral" />
+      </div>
+
+      {/* Preview table */}
+      <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+        <div className="flex items-start justify-between gap-4 p-6 border-b border-gray-100">
+          <div>
+            <h2 className="text-base font-semibold tracking-tight">
+              소프트웨어 자산 미리보기
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              만료일 기준 상위 10개. 전체 관리는 자산관리에서 진행하세요.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <PillButton href="/dashboard/assets/software">전체 보기</PillButton>
+            <PillButton href="/dashboard/assets/software/new" variant="primary">
+              소프트웨어 등록
+            </PillButton>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50 text-gray-600">
+              <tr>
+                <th className="p-3 text-left font-medium">ID</th>
+                <th className="p-3 text-left font-medium">자산명</th>
+                <th className="p-3 text-left font-medium">벤더</th>
+                <th className="p-3 text-left font-medium">부서</th>
+                <th className="p-3 text-left font-medium">상태</th>
+                <th className="p-3 text-left font-medium">만료일</th>
+                <th className="p-3 text-left font-medium">D-day</th>
+                <th className="p-3 text-left font-medium">관리</th>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
+            </thead>
+
+            <tbody className="divide-y divide-gray-100">
+              {preview.length === 0 ? (
+                <tr>
+                  <td className="p-6 text-gray-500" colSpan={8}>
+                    등록된 소프트웨어 자산이 없습니다. 상단의 “소프트웨어 등록”으로
+                    시작해보세요.
+                  </td>
+                </tr>
+              ) : (
+                preview.map((a) => {
+                  const d = daysLeft(a.expiryDate);
+                  return (
+                    <tr key={a.id} className="hover:bg-gray-50 transition">
+                      <td className="p-3 text-gray-700">{a.id}</td>
+                      <td className="p-3">
+                        <Link
+                          className="font-medium text-gray-900 hover:underline"
+                          href={`/dashboard/assets/software/${a.id}`}
+                        >
+                          {a.name}
+                        </Link>
+                      </td>
+                      <td className="p-3 text-gray-700">{a.vendor?.name ?? "-"}</td>
+                      <td className="p-3 text-gray-700">{a.department?.name ?? "-"}</td>
+                      <td className="p-3 text-gray-700">{a.status}</td>
+                      <td className="p-3 text-gray-700">{a.expiryDate.slice(0, 10)}</td>
+                      <td className={`p-3 ${ddayClass(d)}`}>{ddayLabel(d)}</td>
+                      <td className="p-3">
+                        <button
+                          onClick={() => handleDelete(a.id)}
+                          className="rounded-full border border-gray-200 px-3 py-1.5 text-xs hover:bg-gray-50"
+                        >
+                          삭제
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Footer hint */}
+      <div className="text-xs text-gray-500">
+        Tip: 대시보드는 요약/바로가기, 자산관리는 실무 작업(검색·수정·삭제) 화면으로 분리합니다.
+      </div>
     </div>
   );
 }
