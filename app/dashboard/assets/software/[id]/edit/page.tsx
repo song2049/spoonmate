@@ -171,7 +171,7 @@ export default function SoftwareAssetEditPage() {
       status,
     };
 
-    // 선택 필드들
+    // 선택 필드
     payload.vendorId = vendorId ? parseInt(vendorId, 10) : null;
     payload.departmentId = departmentId ? parseInt(departmentId, 10) : null;
     payload.seatsTotal = seatsTotal ? parseInt(seatsTotal, 10) : null;
