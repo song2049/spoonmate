@@ -1,8 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Image from "next/image";
-import Link from "next/link";
+import Header from "./components/Header";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,23 +28,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-gray-50`}
       >
-        {/* 상단 헤더 - 로고 */}
-        <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
-          <div className="flex items-center gap-3 px-6 py-3">
-            <Link href="/dashboard" className="flex items-center gap-3">
-              <Image
-                src="/spoonmate.png"
-                alt="SpoonMate Logo"
-                width={100}
-                height={0}
-                className="object-contain"
-              />
-              <span className="text-lg font-semibold tracking-tight text-gray-900">
-                SpoonMate
-              </span>
-            </Link>
-          </div>
-        </header>
+        {/* 상단 헤더 - 로고 및 로그아웃 */}
+        <Header />
 
         {/* 메인 콘텐츠 */}
         <main>{children}</main>

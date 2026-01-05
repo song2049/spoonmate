@@ -23,17 +23,29 @@ function daysLeft(dateStr: string) {
   return diff;
 }
 
-function ddayLabel(d: number) {
-  if (d < 0) return "만료";
-  return `D-${d}`;
-}
+function DdayBadge({ expiryDate }: { expiryDate: string }) {
+  const d = daysLeft(expiryDate);
 
-function ddayClass(d: number) {
-  if (d < 0) return "text-gray-500";
-  if (d <= 7) return "text-red-600 font-semibold";
-  if (d <= 30) return "text-red-600";
-  if (d <= 90) return "text-orange-600";
-  return "text-green-600";
+  if (d < 0) {
+    return (
+      <span className="inline-flex rounded-full border border-gray-200 bg-white px-2 py-0.5 text-xs text-gray-700">
+        만료됨
+      </span>
+    );
+  }
+
+  const cls =
+    d <= 7
+      ? "border-red-300 bg-red-50 text-red-700"
+      : d <= 30
+      ? "border-amber-300 bg-amber-50 text-amber-800"
+      : "border-gray-200 bg-gray-50 text-gray-700";
+
+  return (
+    <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${cls}`}>
+      D-{d}
+    </span>
+  );
 }
 
 function PillButton({
@@ -327,7 +339,6 @@ export default function DashboardPage() {
                 </tr>
               ) : (
                 preview.map((a) => {
-                  const d = daysLeft(a.expiryDate);
                   return (
                     <tr key={a.id} className="hover:bg-gray-50 transition">
                       <td className="p-3 text-gray-700">{a.id}</td>
@@ -343,7 +354,9 @@ export default function DashboardPage() {
                       <td className="p-3 text-gray-700">{a.department?.name ?? "-"}</td>
                       <td className="p-3 text-gray-700">{a.status}</td>
                       <td className="p-3 text-gray-700">{a.expiryDate.slice(0, 10)}</td>
-                      <td className={`p-3 ${ddayClass(d)}`}>{ddayLabel(d)}</td>
+                      <td className="p-3">
+                        <DdayBadge expiryDate={a.expiryDate} />
+                      </td>
                       <td className="p-3">
                         <button
                           onClick={() => handleDelete(a.id)}
