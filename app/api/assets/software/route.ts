@@ -102,6 +102,7 @@ export async function POST(req: Request) {
     const currency = body?.currency ? String(body.currency).trim() : undefined;
     const billingCycle = parseEnumCI(BillingCycle, body?.billingCycle);
     const purchaseDate = toDate(body?.purchaseDate);
+    const purchaseChannel = body?.purchaseChannel ? String(body.purchaseChannel).trim() : undefined;
     const description = body?.description ? String(body.description).trim() : undefined;
 
     const created = await prisma.softwareAsset.create({
@@ -120,6 +121,7 @@ export async function POST(req: Request) {
         ...(currency && { currency }),
         ...(billingCycle && { billingCycle }),
         ...(purchaseDate !== null && { purchaseDate }),
+        ...(purchaseChannel && { purchaseChannel }),
         ...(description && { description }),
       },
     });

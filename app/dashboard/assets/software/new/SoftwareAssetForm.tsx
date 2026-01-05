@@ -10,6 +10,7 @@ type Meta = {
   currencies: string[];
   vendors: { id: number; name: string }[];
   departments: { id: number; name: string }[];
+  purchaseChannels: string[];
 };
 
 export default function SoftwareAssetForm() {
@@ -22,6 +23,7 @@ export default function SoftwareAssetForm() {
     currencies: [],
     vendors: [],
     departments: [],
+    purchaseChannels: [],
   });
   const [metaError, setMetaError] = useState<string | null>(null);
 
@@ -42,7 +44,7 @@ export default function SoftwareAssetForm() {
   const [billingCycle, setBillingCycle] = useState<string>("monthly");
   const [purchaseDate, setPurchaseDate] = useState<string>("");
   const [description, setDescription] = useState<string>("");
-
+  const [purchaseChannel, setPurchaseChannel] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -68,14 +70,16 @@ export default function SoftwareAssetForm() {
       const currencies = data?.currencies ?? [];
       const vendors = data?.vendors ?? [];
       const departments = data?.departments ?? [];
+      const purchaseChannels = data?.purchaseChannels ?? [];
 
-      setMeta({ categories, statuses, billingCycles, currencies, vendors, departments });
+      setMeta({ categories, statuses, billingCycles, currencies, vendors, departments, purchaseChannels });
 
       // 기본 선택값 세팅
       setCategory(categories[0] ?? "");
       setStatus(statuses[0] ?? "");
       setCurrency(currencies[0] ?? "KRW");
       setBillingCycle(billingCycles[0] ?? "monthly");
+      setPurchaseChannel(purchaseChannels[0] ?? "");
     };
 
     run();
@@ -101,6 +105,7 @@ export default function SoftwareAssetForm() {
     if (currency) payload.currency = currency;
     if (billingCycle) payload.billingCycle = billingCycle;
     if (purchaseDate) payload.purchaseDate = purchaseDate.trim();
+    if (purchaseChannel.trim()) payload.purchaseChannel = purchaseChannel.trim();
     if (description.trim()) payload.description = description.trim();
 
     if (!payload.name || !payload.category || !payload.expiryDate) {
@@ -261,7 +266,36 @@ export default function SoftwareAssetForm() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        {/* 구매 채널 */}
+        <div className="grid gap-2">
+          <label className="text-sm font-medium">구매 채널</label>
+          <input
+            type="text"
+            className="rounded-md border p-2"
+            value={purchaseChannel}
+            onChange={(e) => setPurchaseChannel(e.target.value)}
+            placeholder="예: 인터넷 구매"
+          />
+        </div>
+
+        {/* 결제 주기 */}
+        <div className="grid gap-2">
+          <label className="text-sm font-medium">결제 주기</label>
+          <select
+            className="rounded-md border p-2"
+            value={billingCycle}
+            onChange={(e) => setBillingCycle(e.target.value)}
+          >
+            {meta.billingCycles.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* 비용 */}
         <div className="grid gap-2">
           <label className="text-sm font-medium">비용</label>
           <input
@@ -273,6 +307,7 @@ export default function SoftwareAssetForm() {
           />
         </div>
 
+        {/* 통화 */}
         <div className="grid gap-2">
           <label className="text-sm font-medium">통화</label>
           <select
@@ -283,21 +318,6 @@ export default function SoftwareAssetForm() {
             {meta.currencies.map((c) => (
               <option key={c} value={c}>
                 {c}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="grid gap-2">
-          <label className="text-sm font-medium">결제 주기</label>
-          <select
-            className="rounded-md border p-2"
-            value={billingCycle}
-            onChange={(e) => setBillingCycle(e.target.value)}
-          >
-            {meta.billingCycles.map((b) => (
-              <option key={b} value={b}>
-                {b}
               </option>
             ))}
           </select>

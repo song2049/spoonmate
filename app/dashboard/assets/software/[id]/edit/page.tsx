@@ -11,6 +11,7 @@ type Meta = {
   currencies: string[];
   vendors: { id: number; name: string }[];
   departments: { id: number; name: string }[];
+  purchaseChannels: string[];
 };
 
 type Item = {
@@ -50,6 +51,7 @@ export default function SoftwareAssetEditPage() {
     currencies: [],
     vendors: [],
     departments: [],
+    purchaseChannels: [],
   });
   const [metaLoading, setMetaLoading] = useState(true);
   const [itemLoading, setItemLoading] = useState(true);
@@ -70,7 +72,7 @@ export default function SoftwareAssetEditPage() {
   const [billingCycle, setBillingCycle] = useState<string>("monthly");
   const [purchaseDate, setPurchaseDate] = useState<string>("");
   const [description, setDescription] = useState<string>("");
-
+  const [purchaseChannel, setPurchaseChannel] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -92,6 +94,7 @@ export default function SoftwareAssetEditPage() {
           currencies: data?.currencies ?? [],
           vendors: data?.vendors ?? [],
           departments: data?.departments ?? [],
+          purchaseChannels: data?.purchaseChannels ?? [],
         });
       }
       setMetaLoading(false);
@@ -147,6 +150,7 @@ export default function SoftwareAssetEditPage() {
       setBillingCycle(item.billingCycle ?? "monthly");
       setPurchaseDate(item.purchaseDate ? item.purchaseDate.slice(0, 10) : "");
       setDescription(item.description ?? "");
+      setPurchaseChannel(item.purchaseChannel ?? "");
 
       setItemLoading(false);
     };
@@ -177,7 +181,7 @@ export default function SoftwareAssetEditPage() {
     payload.billingCycle = billingCycle || "monthly";
     payload.purchaseDate = purchaseDate.trim() || null;
     payload.description = description.trim() || null;
-
+    payload.purchaseChannel = purchaseChannel.trim() || null; 
     if (!payload.name || !payload.category || !payload.expiryDate) {
       setError("제품명, 카테고리, 만료일은 필수입니다.");
       return;
@@ -253,9 +257,7 @@ export default function SoftwareAssetEditPage() {
             <h1 className="mt-3 text-2xl font-semibold tracking-tight">
               자산 수정
             </h1>
-            <p className="mt-1 text-sm text-gray-500">
-              ID #{id} 수정 중
-            </p>
+            <p className="mt-1 text-sm text-gray-500">ID #{id} 수정 중</p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -337,7 +339,9 @@ export default function SoftwareAssetEditPage() {
           </div>
 
           <hr className="my-4 border-gray-200" />
-          <p className="text-xs text-gray-500 mb-2">아래 항목은 선택 사항입니다.</p>
+          <p className="text-xs text-gray-500 mb-2">
+            아래 항목은 선택 사항입니다.
+          </p>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
@@ -399,7 +403,36 @@ export default function SoftwareAssetEditPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            {/* 구매 채널 */}
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">구매 채널</label>
+              <input
+                type="text"
+                className="rounded-md border p-2"
+                value={purchaseChannel}
+                onChange={(e) => setPurchaseChannel(e.target.value)}
+                placeholder="예: 인터넷 구매"
+              />
+            </div>
+
+            {/* 결제 주기 */}
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">결제 주기</label>
+              <select
+                className="rounded-md border p-2"
+                value={billingCycle}
+                onChange={(e) => setBillingCycle(e.target.value)}
+              >
+                {meta.billingCycles.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 비용 */}
             <div className="grid gap-2">
               <label className="text-sm font-medium">비용</label>
               <input
@@ -411,6 +444,7 @@ export default function SoftwareAssetEditPage() {
               />
             </div>
 
+            {/* 통화 */}
             <div className="grid gap-2">
               <label className="text-sm font-medium">통화</label>
               <select
@@ -421,21 +455,6 @@ export default function SoftwareAssetEditPage() {
                 {meta.currencies.map((c) => (
                   <option key={c} value={c}>
                     {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">결제 주기</label>
-              <select
-                className="rounded-md border p-2"
-                value={billingCycle}
-                onChange={(e) => setBillingCycle(e.target.value)}
-              >
-                {meta.billingCycles.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
                   </option>
                 ))}
               </select>

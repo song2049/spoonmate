@@ -574,6 +574,7 @@ export default function SoftwareAssetDetailPage() {
           <Field label="결제 주기" value={item.billingCycle ?? "-"} />
           <Field label="비용" value={item.cost?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") ?? "-"} />
           <Field label="통화" value={item.currency ?? "-"} />
+          <Field label="구매 채널" value={item.purchaseChannel ?? "-"} />
         </div>
 
         <div className="mt-6">
