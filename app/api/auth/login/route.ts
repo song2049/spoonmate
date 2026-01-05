@@ -91,9 +91,11 @@ export async function POST(request: Request) {
     });
 
     // 쿠키에도 토큰 저장 (NextResponse를 통해 설정)
+    const isHttps = (process.env.NEXTAUTH_URL || "").startsWith("https://");
+	
     response.cookies.set('auth_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHttps,
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7,
       path: '/',
