@@ -29,6 +29,7 @@ type Item = {
   seatsTotal?: number | null;
   seatsUsed?: number | null;
   description?: string | null;
+  purchaseChannel?: string | null;
 };
 
 export default function SoftwareAssetEditPage() {
