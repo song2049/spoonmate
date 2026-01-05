@@ -36,7 +36,8 @@ export default function SoftwareAssetForm() {
   const [departmentId, setDepartmentId] = useState<string>("");
   const [seatsTotal, setSeatsTotal] = useState<string>("");
   const [seatsUsed, setSeatsUsed] = useState<string>("");
-  const [cost, setCost] = useState<string>("");
+  // 비용 자리수 구분 "," 기능 추가
+  const [cost, setCost] = useState<string>("0,000");
   const [currency, setCurrency] = useState<string>("KRW");
   const [billingCycle, setBillingCycle] = useState<string>("monthly");
   const [purchaseDate, setPurchaseDate] = useState<string>("");
@@ -323,13 +324,22 @@ export default function SoftwareAssetForm() {
         />
       </div>
 
-      <button
-        type="submit"
-        disabled={loading || meta.categories.length === 0}
-        className="rounded-md bg-black px-4 py-2 text-white disabled:opacity-60"
-      >
-        {loading ? "등록 중..." : "등록"}
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={loading || meta.categories.length === 0}
+          className="rounded-md bg-black px-4 py-2 text-white disabled:opacity-60"
+        >
+          {loading ? "등록 중..." : "등록"}
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard/assets/software")}
+          className="rounded-md border border-gray-200 bg-white px-4 py-3 text-sm hover:bg-gray-50 disabled:opacity-50"
+        >
+          취소
+        </button>
+      </div>
     </form>
   );
 }

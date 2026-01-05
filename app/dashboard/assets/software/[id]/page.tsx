@@ -570,6 +570,10 @@ export default function SoftwareAssetDetailPage() {
           <Field label="벤더" value={item.vendor?.name ?? "-"} />
           <Field label="부서" value={item.department?.name ?? "-"} />
           <Field label="좌석" value={seatsText} />
+          <Field label="구매일" value={item.purchaseDate?.slice(0, 10) ?? "-"} />
+          <Field label="결제 주기" value={item.billingCycle ?? "-"} />
+          <Field label="비용" value={item.cost?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") ?? "-"} />
+          <Field label="통화" value={item.currency ?? "-"} />
         </div>
 
         <div className="mt-6">

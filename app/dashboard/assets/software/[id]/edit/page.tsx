@@ -65,7 +65,7 @@ export default function SoftwareAssetEditPage() {
   const [departmentId, setDepartmentId] = useState<string>("");
   const [seatsTotal, setSeatsTotal] = useState<string>("");
   const [seatsUsed, setSeatsUsed] = useState<string>("");
-  const [cost, setCost] = useState<string>("");
+  const [cost, setCost] = useState<string>("0,000");
   const [currency, setCurrency] = useState<string>("KRW");
   const [billingCycle, setBillingCycle] = useState<string>("monthly");
   const [purchaseDate, setPurchaseDate] = useState<string>("");
