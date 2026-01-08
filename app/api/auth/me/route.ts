@@ -1,31 +1,26 @@
 // app/api/auth/me/route.ts
 import { NextResponse } from "next/server";
-import { getAuthFromRequest } from "@/lib/auth";
+import { requireAdmin } from "@/lib/requireAdmin";
 
 export async function GET(request: Request) {
-  // Authorization 헤더 로깅
-  const authHeader = request.headers.get("Authorization");
-  console.log("[/api/auth/me] Authorization header:", authHeader ? "present" : "missing");
+  try {
+    // ✅ 쿠키(auth_token) 기반 단일 소스 인증
+    const auth = requireAdmin(request);
 
-  // 인증 정보 추출
-  const auth = getAuthFromRequest(request);
-
-  if (!auth) {
-    console.warn("[/api/auth/me] Authentication failed - no valid token");
-    return NextResponse.json(
-      { error: "인증이 필요합니다." },
-      { status: 401 }
-    );
+    return NextResponse.json({
+      authenticated: true,
+      user: {
+        adminId: auth.adminId,
+        username: auth.username,
+        name: auth.name,
+        role: auth.role, // ✅ SUPER_ADMIN / ADMIN
+      },
+    });
+  } catch (e: any) {
+    const msg = e?.message ?? "Server error";
+    if (msg === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
-
-  console.log("[/api/auth/me] Authenticated user:", auth.username);
-
-  return NextResponse.json({
-    authenticated: true,
-    user: {
-      adminId: auth.adminId,
-      username: auth.username,
-      name: auth.name,
-    },
-  });
 }

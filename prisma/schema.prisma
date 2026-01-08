@@ -7,13 +7,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+}
+
 model Admin {
-  id            Int             @id @default(autoincrement())
-  username      String          @unique
+  id            Int        @id @default(autoincrement())
+  username      String     @unique
   password      String
   name          String
   email         String
-  createdAt     DateTime        @default(now())
+  role          AdminRole  @default(ADMIN)   // ✅ 추가
+  isActive  Boolean   @default(true) // ✅ 추가
+  createdAt     DateTime   @default(now())
   SoftwareAsset SoftwareAsset[]
 }
 

@@ -1,64 +1,68 @@
 // middleware.ts
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import jwt from "jsonwebtoken";
 
-function extractBearerToken(authHeader: string | null): string | null {
-  if (!authHeader) return null;
-  const parts = authHeader.trim().split(/\s+/);
-  if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") {
-    return null;
-  }
-  return parts[1];
-}
+type AdminRole = "SUPER_ADMIN" | "ADMIN";
 
-function getTokenFromRequest(request: NextRequest): string | null {
-  // 1. Authorization 헤더 우선
-  const authHeader = request.headers.get("Authorization");
-  const bearerToken = extractBearerToken(authHeader);
-  if (bearerToken) {
-    return bearerToken;
-  }
-
-  // 2. Cookie fallback
-  return request.cookies.get('auth_token')?.value || null;
-}
+type JwtPayload = {
+  adminId: number;
+  username: string;
+  name: string;
+  role?: AdminRole;
+  iat?: number;
+  exp?: number;
+};
 
 export function middleware(request: NextRequest) {
-  const token = getTokenFromRequest(request);
-  const hasAuthHeader = !!request.headers.get("Authorization");
-  
-  console.log("[MW] PATH:", request.nextUrl.pathname, {
+  const pathname = request.nextUrl.pathname;
+
+  // ✅ 쿠키에서만 토큰 추출 (단일 소스)
+  const token = request.cookies.get("auth_token")?.value || null;
+
+  // 보호 경로 (로그인 필요)
+  const protectedPaths = ["/dashboard", "/assets"];
+
+  // 슈퍼관리자 전용 경로
+  const superOnlyPaths = ["/dashboard/admin"]; // 예: 관리자 관리 페이지들
+
+  const isProtectedPath = protectedPaths.some((p) => pathname.startsWith(p));
+  const isSuperOnlyPath = superOnlyPaths.some((p) => pathname.startsWith(p));
+
+  console.log("[MW] PATH:", pathname, {
     hasToken: !!token,
-    source: hasAuthHeader ? "header" : token ? "cookie" : "none",
+    source: token ? "cookie" : "none",
   });
 
-  // 보호된 경로들
-  const protectedPaths = ['/dashboard', '/assets'];
-  const isProtectedPath = protectedPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  );
-
-  // 보호된 경로인데 토큰 없으면 로그인 페이지로
-  if (isProtectedPath && !token) {
-    console.log("[MW BLOCKED] No token for protected path:", request.nextUrl.pathname);
-    const url = new URL('/login', request.url);
-    url.searchParams.set('next', request.nextUrl.pathname);
+  // 1) 보호된 경로인데 토큰 없으면 로그인
+  if ((isProtectedPath || isSuperOnlyPath) && !token) {
+    console.log("[MW BLOCKED] No token:", pathname);
+    const url = new URL("/login", request.url);
+    url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
 
-  // 토큰이 있으면 검증
+  // 2) 토큰 있으면 검증 + 권한 체크
   if (token) {
     try {
-      const payload = jwt.verify(token, process.env.JWT_SECRET!);
-      console.log("[MW] Token valid for:", (payload as { username?: string }).username);
-      
-      // 로그인 상태에서 로그인 페이지 접근 시 대시보드로
-      if (request.nextUrl.pathname === '/login') {
-        return NextResponse.redirect(new URL('/dashboard', request.url));
+      const payload = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+
+      const role: AdminRole = payload.role ?? "ADMIN"; // 레거시 토큰 방어
+
+      console.log("[MW] Token valid:", { username: payload.username, role });
+
+      // ✅ 슈퍼전용 경로 접근 차단
+      if (isSuperOnlyPath && role !== "SUPER_ADMIN") {
+        console.log("[MW BLOCKED] Forbidden (need SUPER_ADMIN):", pathname);
+        return NextResponse.redirect(new URL("/dashboard/admin", request.url));
+      }
+
+      // ✅ 로그인 상태에서 /login 접근하면 /dashboard로
+      if (pathname === "/login") {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
       }
     } catch (error) {
-      // 서버 로그에 실패 사유 기록
+      // 토큰 검증 실패
       if (error instanceof jwt.TokenExpiredError) {
         console.error("[MW] Token expired at:", error.expiredAt);
       } else if (error instanceof jwt.JsonWebTokenError) {
@@ -67,12 +71,20 @@ export function middleware(request: NextRequest) {
         console.error("[MW] Token verification failed:", error);
       }
 
-      // 토큰이 유효하지 않으면 보호된 경로에서 로그인으로
-      if (isProtectedPath) {
-        console.log("[MW BLOCKED] Invalid token for protected path:", request.nextUrl.pathname);
-        const response = NextResponse.redirect(new URL('/login', request.url));
-        response.cookies.delete('auth_token');
-        return response;
+      // 유효하지 않은 토큰이면 쿠키 삭제
+      // 보호된 경로면 로그인으로
+      if (isProtectedPath || isSuperOnlyPath) {
+        console.log("[MW BLOCKED] Invalid token on protected path:", pathname);
+        const res = NextResponse.redirect(new URL("/login", request.url));
+        res.cookies.delete("auth_token");
+        return res;
+      }
+
+      // /login 접근 시 유효하지 않은 토큰은 삭제하고 로그인 페이지 유지
+      if (pathname === "/login") {
+        const res = NextResponse.next();
+        res.cookies.delete("auth_token");
+        return res;
       }
     }
   }
@@ -81,9 +93,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
 
 export const runtime = "nodejs";

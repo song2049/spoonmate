@@ -1,5 +1,11 @@
 // lib/auth.ts
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken";
+
+// ============================================================
+// 🔒 쿠키 기반 인증 유틸리티 (단일 소스)
+// ============================================================
+// Authorization 헤더 로직 제거 - httpOnly 쿠키(auth_token)만 사용
+// ============================================================
 
 export interface AdminPayload {
   adminId: number;
@@ -7,30 +13,6 @@ export interface AdminPayload {
   name: string;
   iat?: number;
   exp?: number;
-}
-
-/**
- * Authorization 헤더에서 Bearer 토큰 추출
- */
-export function extractBearerToken(authHeader: string | null): string | null {
-  if (!authHeader) {
-    return null;
-  }
-
-  // "Bearer <token>" 형식 파싱
-  const parts = authHeader.trim().split(/\s+/);
-  if (parts.length !== 2) {
-    console.warn("[Auth] Invalid Authorization header format");
-    return null;
-  }
-
-  const [scheme, token] = parts;
-  if (scheme.toLowerCase() !== "bearer") {
-    console.warn("[Auth] Authorization scheme is not Bearer");
-    return null;
-  }
-
-  return token;
 }
 
 /**
@@ -54,22 +36,13 @@ export function verifyToken(token: string): AdminPayload | null {
 }
 
 /**
- * Request에서 인증 정보 추출 (헤더 우선, 쿠키 fallback)
+ * Request에서 쿠키 토큰 추출 (쿠키 단일 소스)
  */
 export function getTokenFromRequest(request: Request): string | null {
-  // 1. Authorization 헤더 확인 (우선)
-  const authHeader = request.headers.get("Authorization");
-  const bearerToken = extractBearerToken(authHeader);
-  if (bearerToken) {
-    console.log("[Auth] Token from Authorization header");
-    return bearerToken;
-  }
-
-  // 2. Cookie fallback
+  // ✅ Cookie에서만 토큰 추출 (단일 소스)
   const cookieHeader = request.headers.get("Cookie") || "";
   const match = cookieHeader.match(/auth_token=([^;]+)/);
   if (match) {
-    console.log("[Auth] Token from Cookie");
     return match[1];
   }
 
@@ -95,7 +68,7 @@ export function requireAuth(request: Request): AdminPayload {
   const admin = getAuthFromRequest(request);
 
   if (!admin) {
-    throw new Error('UNAUTHORIZED');
+    throw new Error("UNAUTHORIZED");
   }
 
   return admin;

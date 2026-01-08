@@ -1,10 +1,7 @@
 "use client";
 
-"use client";
-
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { setAccessToken } from "@/lib/api";
 
 export default function LoginClient() {
   const router = useRouter();
@@ -26,7 +23,7 @@ export default function LoginClient() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-	credentials: "include",
+        credentials: "include", // ✅ 쿠키 수신을 위해 필수
         body: JSON.stringify({ username, password }),
       });
 
@@ -36,16 +33,12 @@ export default function LoginClient() {
         throw new Error(data?.error || "로그인 실패");
       }
 
-      // ✅ 토큰을 localStorage에 저장
-      if (data.token) {
-        setAccessToken(data.token);
-        console.log("[Login] Token received and stored");
-      }
+      // ✅ 로그인 성공 - 쿠키는 서버에서 자동으로 설정됨
+      // localStorage 토큰 저장 로직 제거 (쿠키 단일 소스)
+      console.log("[Login] Success - cookie set by server");
 
       // ✅ 로그인 성공 후 이동
-      console.log("[Login] Redirecting to:", nextPath);
-      router.push(nextPath);
-      router.refresh();
+      router.replace(nextPath);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "로그인 중 오류";
       setError(message);

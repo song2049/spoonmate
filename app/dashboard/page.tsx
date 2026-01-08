@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { fetchSoftwareAssets } from "@/lib/api";
+import { fetchSoftwareAssets, apiFetch } from "@/lib/api"; // ✅ apiFetch 추가
+
+type AdminRole = "SUPER_ADMIN" | "ADMIN";
+type MeUser = {
+  adminId: number;
+  username: string;
+  name: string;
+  role: AdminRole;
+};
 
 type Asset = {
   id: number;
@@ -115,6 +123,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // ✅ 추가: 로그인 사용자(role) 상태
+  const [me, setMe] = useState<MeUser | null>(null);
+
   async function load() {
     try {
       setLoading(true);
@@ -125,6 +136,19 @@ export default function DashboardPage() {
       setError("자산 목록을 불러오지 못했습니다.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  // ✅ 추가: 슈퍼관리자 여부 확인(쿠키 기반 /api/auth/me)
+  async function loadMe() {
+    try {
+      const { data } = await apiFetch<{ authenticated: boolean; user: MeUser }>(
+        "/api/auth/me"
+      );
+      setMe(data.user);
+    } catch {
+      // 인증 실패/만료 등은 기존 흐름(middleware/apiFetch 401 처리)에 맡김
+      setMe(null);
     }
   }
 
@@ -139,7 +163,7 @@ export default function DashboardPage() {
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      alert(data?.error ?? `삭제 실패 (status: ${res.status})`);
+      alert((data as any)?.error ?? `삭제 실패 (status: ${res.status})`);
       return;
     }
 
@@ -148,6 +172,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     load();
+    loadMe(); // ✅ 추가
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -201,6 +226,13 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* ✅ 슈퍼관리자 버튼 (최소 추가) */}
+              {me?.role === "SUPER_ADMIN" && (
+                <PillButton href="/dashboard/admin/admins">
+                  관리자 관리
+                </PillButton>
+              )}
+
               <PillButton href="/dashboard/notifications">알림</PillButton>
               <PillButton href="/dashboard/new" variant="primary">
                 등록
@@ -243,6 +275,13 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* ✅ 슈퍼관리자 버튼 (최소 추가) */}
+            {me?.role === "SUPER_ADMIN" && (
+              <PillButton href="/dashboard/admin/admins">
+                관리자 관리
+              </PillButton>
+            )}
+
             <PillButton href="/dashboard/notifications">알림</PillButton>
             <PillButton href="/dashboard/new" variant="primary">
               등록
@@ -284,6 +323,27 @@ export default function DashboardPage() {
             </div>
           </Link>
         </div>
+
+        {/* ✅ 선택: 슈퍼관리자만 보이는 퀵링크 카드(원하면 유지, 원치 않으면 삭제) */}
+        {me?.role === "SUPER_ADMIN" && (
+          <div className="mt-4">
+            <Link
+              href="/dashboard/admin/admins"
+              className="group block rounded-2xl border border-gray-200 p-5 hover:bg-gray-50 transition"
+            >
+              <div className="text-xs font-medium text-gray-500">시스템</div>
+              <div className="mt-1 text-lg font-semibold tracking-tight">
+                관리자 계정 관리
+              </div>
+              <div className="mt-2 text-sm text-gray-500">
+                관리자 생성 · 권한 관리(슈퍼 전용)
+              </div>
+              <div className="mt-4 text-sm font-medium text-gray-900 group-hover:underline">
+                열기 →
+              </div>
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Stats */}

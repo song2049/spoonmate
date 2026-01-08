@@ -1,79 +1,55 @@
 // lib/requireAdmin.ts
 import jwt from "jsonwebtoken";
 
+export type AdminRole = "SUPER_ADMIN" | "ADMIN";
+
 export interface AdminPayload {
   adminId: number;
   username: string;
   name: string;
+  role: AdminRole;
   iat?: number;
   exp?: number;
 }
 
 /**
- * Request 객체에서 쿠키를 파싱하여 auth_token 추출
+ * Cookie header에서 auth_token 추출
+ * (httpOnly 쿠키 단일 소스)
  */
 function getTokenFromCookie(req: Request): string | null {
   const cookieHeader = req.headers.get("cookie") || "";
-  const match = cookieHeader.match(/auth_token=([^;]+)/);
-  return match ? match[1] : null;
+  const match = cookieHeader.match(/(?:^|;\s*)auth_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 /**
- * Request 객체에서 Authorization 헤더의 Bearer 토큰 추출
- */
-function getBearerToken(req: Request): string | null {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader) return null;
-
-  const parts = authHeader.trim().split(/\s+/);
-  if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") {
-    return null;
-  }
-  return parts[1];
-}
-
-/**
- * Request 객체에서 인증 토큰 추출 (Authorization 헤더 우선, Cookie fallback)
- */
-function getTokenFromRequest(req: Request): string | null {
-  // 1. Authorization 헤더 우선
-  const bearerToken = getBearerToken(req);
-  if (bearerToken) {
-    console.log("[requireAdmin] Token from Authorization header");
-    return bearerToken;
-  }
-
-  // 2. Cookie fallback
-  const cookieToken = getTokenFromCookie(req);
-  if (cookieToken) {
-    console.log("[requireAdmin] Token from Cookie");
-    return cookieToken;
-  }
-
-  return null;
-}
-
-/**
- * 인증 필수 - Request 객체를 받아 JWT 검증 수행
- * 
- * @param req - Request 객체
- * @returns AdminPayload - 검증된 사용자 정보
- * @throws Error("UNAUTHORIZED") - 인증 실패 시
+ * 인증 필수 - 쿠키(auth_token)에서 JWT 검증
  */
 export function requireAdmin(req: Request): AdminPayload {
-  const token = getTokenFromRequest(req);
+  const token = getTokenFromCookie(req);
 
   if (!token) {
-    console.log("[requireAdmin] ❌ No token found");
+    console.log("[requireAdmin] ❌ No auth_token cookie");
     throw new Error("UNAUTHORIZED");
   }
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET!) as AdminPayload;
-    console.log("[requireAdmin] ✅ Token valid for:", payload.username);
+
+    // role이 없는 레거시 토큰 방어(초기 마이그레이션용)
+    if (!payload.role) {
+      // 기본값을 ADMIN으로 취급하거나, 아예 거절할 수도 있음(권장: 거절)
+      console.warn("[requireAdmin] ⚠️ Token has no role - treating as ADMIN");
+      (payload as any).role = "ADMIN";
+    }
+
+    console.log("[requireAdmin] ✅ Token valid:", {
+      username: payload.username,
+      role: payload.role,
+    });
+
     return payload;
   } catch (error) {
-    // 서버 로그에 실패 사유 기록
     if (error instanceof jwt.TokenExpiredError) {
       console.error("[requireAdmin] Token expired at:", error.expiredAt);
     } else if (error instanceof jwt.JsonWebTokenError) {
@@ -83,4 +59,18 @@ export function requireAdmin(req: Request): AdminPayload {
     }
     throw new Error("UNAUTHORIZED");
   }
+}
+
+/**
+ * 슈퍼관리자만 허용
+ */
+export function requireSuperAdmin(req: Request): AdminPayload {
+  const payload = requireAdmin(req);
+
+  if (payload.role !== "SUPER_ADMIN") {
+    console.log("[requireSuperAdmin] ❌ Forbidden for:", payload.username);
+    throw new Error("FORBIDDEN");
+  }
+
+  return payload;
 }

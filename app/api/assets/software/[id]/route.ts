@@ -56,10 +56,11 @@ export async function GET(
     const id = parseId(idParam);
     if (!id) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
+    // ✅ 모든 ADMIN이 모든 자산 조회 가능 (목록 조회와 동일)
     const item = await prisma.softwareAsset.findFirst({
       where: {
         id,
-        owner: { username: admin.username },
+        // owner 필터 제거 - 모든 ADMIN이 모든 자산 조회 가능
       },
       include: {
         vendor: { select: { id: true, name: true } },
@@ -106,9 +107,9 @@ export async function PATCH(
     const id = parseId(idParam);
     if (!id) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
-    // 소유권 확인
-    const exists = await prisma.softwareAsset.findFirst({
-      where: { id, owner: { username: admin.username } },
+    // ✅ 모든 ADMIN이 모든 자산 수정 가능 (소유권 확인 제거)
+    const exists = await prisma.softwareAsset.findUnique({
+      where: { id },
       select: { id: true },
     });
     if (!exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -213,9 +214,9 @@ export async function DELETE(
     const id = parseId(idParam);
     if (!id) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
-    // 소유권 확인
-    const exists = await prisma.softwareAsset.findFirst({
-      where: { id, owner: { username: admin.username } },
+    // ✅ 모든 ADMIN이 모든 자산 수정 가능 (소유권 확인 제거)
+    const exists = await prisma.softwareAsset.findUnique({
+      where: { id },
       select: { id: true },
     });
     if (!exists) return NextResponse.json({ error: "Not found" }, { status: 404 });

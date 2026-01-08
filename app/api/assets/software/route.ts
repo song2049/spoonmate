@@ -36,6 +36,7 @@ function toDecimal(v: unknown) {
 }
 
 // ✅ 목록 조회 (+ 만료임박 mode 필터 유지)
+// ADMIN 및 SUPER_ADMIN 모두 모든 자산 조회 가능 (조회 권한 분리)
 export async function GET(req: Request) {
   try {
     const admin = requireAdmin(req);
@@ -49,9 +50,8 @@ export async function GET(req: Request) {
     if (mode === "exp7") upper.setDate(upper.getDate() + 7);
     if (mode === "exp30") upper.setDate(upper.getDate() + 30);
 
-    const where: any = {
-      owner: { username: admin.username },
-    };
+    // ✅ 모든 ADMIN이 모든 자산 조회 가능 (role 구분 없음)
+    const where: any = {};
 
     if (mode === "exp7" || mode === "exp30") {
       where.expiryDate = { gte: now, lte: upper };
