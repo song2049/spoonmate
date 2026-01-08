@@ -46,8 +46,8 @@ function DdayBadge({ expiryDate }: { expiryDate: string }) {
     d <= 7
       ? "border-red-300 bg-red-50 text-red-700"
       : d <= 30
-      ? "border-amber-300 bg-amber-50 text-amber-800"
-      : "border-gray-200 bg-gray-50 text-gray-700";
+        ? "border-amber-300 bg-amber-50 text-amber-800"
+        : "border-gray-200 bg-gray-50 text-gray-700";
 
   return (
     <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${cls}`}>
@@ -91,19 +91,19 @@ function StatCard({
     tone === "danger"
       ? "ring-red-100"
       : tone === "warning"
-      ? "ring-orange-100"
-      : tone === "success"
-      ? "ring-green-100"
-      : "ring-gray-100";
+        ? "ring-orange-100"
+        : tone === "success"
+          ? "ring-green-100"
+          : "ring-gray-100";
 
   const chip =
     tone === "danger"
       ? "bg-red-50 text-red-700"
       : tone === "warning"
-      ? "bg-orange-50 text-orange-700"
-      : tone === "success"
-      ? "bg-green-50 text-green-700"
-      : "bg-gray-50 text-gray-700";
+        ? "bg-orange-50 text-orange-700"
+        : tone === "success"
+          ? "bg-green-50 text-green-700"
+          : "bg-gray-50 text-gray-700";
 
   return (
     <div className={`rounded-2xl border border-gray-200 bg-white p-5 ring-1 ${ring}`}>
@@ -317,6 +317,21 @@ export default function DashboardPage() {
             </div>
             <div className="mt-2 text-sm text-gray-500">
               D-7 / D-30 / 만료 상태를 기록 기반으로 추적
+            </div>
+            <div className="mt-4 text-sm font-medium text-gray-900 group-hover:underline">
+              열기 →
+            </div>
+          </Link>
+          <Link
+            href="/dashboard/assets"
+            className="group rounded-2xl border border-gray-200 p-5 hover:bg-gray-50 transition"
+          >
+            <div className="text-xs font-medium text-gray-500">자산 관리</div>
+            <div className="mt-1 text-lg font-semibold tracking-tight">
+              동적 자산 목록
+            </div>
+            <div className="mt-2 text-sm text-gray-500">
+              유형자산 · 무형자산 · 구독 등 확장 자산 관리
             </div>
             <div className="mt-4 text-sm font-medium text-gray-900 group-hover:underline">
               열기 →

@@ -7,22 +7,24 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 enum AdminRole {
   SUPER_ADMIN
   ADMIN
 }
 
 model Admin {
-  id            Int        @id @default(autoincrement())
-  username      String     @unique
+  id            Int             @id @default(autoincrement())
+  username      String          @unique
   password      String
   name          String
   email         String
-  role          AdminRole  @default(ADMIN)   // ✅ 추가
-  isActive  Boolean   @default(true) // ✅ 추가
-  createdAt     DateTime   @default(now())
+  role          AdminRole       @default(ADMIN) // ✅ 추가
+  isActive      Boolean         @default(true) // ✅ 추가
+  createdAt     DateTime        @default(now())
   SoftwareAsset SoftwareAsset[]
+
+  // ✅ 추가: 동적 자산 생성한 목록 (역관계)
+  createdAssets AssetEntity[] @relation("AdminCreatedAssets")
 }
 
 model Department {
@@ -132,4 +134,60 @@ enum BillingCycle {
   yearly
   one_time
   none
+}
+
+enum DynamicFieldType {
+  text
+  textarea
+  number
+  date
+  select
+  boolean
+}
+
+model AssetType {
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique
+  name      String
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  fields AssetTypeField[]
+  assets AssetEntity[]
+}
+
+model AssetTypeField {
+  id          Int              @id @default(autoincrement())
+  typeId      Int
+  key         String
+  label       String
+  fieldType   DynamicFieldType
+  required    Boolean          @default(false)
+  optionsJson Json?
+  order       Int              @default(0)
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+
+  type AssetType @relation(fields: [typeId], references: [id])
+
+  @@unique([typeId, key])
+  @@index([typeId])
+}
+
+model AssetEntity {
+  id          Int      @id @default(autoincrement())
+  typeId      Int
+  title       String
+  status      String   @default("ACTIVE")
+  data        Json
+  createdById Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  type      AssetType @relation(fields: [typeId], references: [id])
+  createdBy Admin?    @relation("AdminCreatedAssets", fields: [createdById], references: [id])
+
+  @@index([typeId])
+  @@index([createdById])
 }
