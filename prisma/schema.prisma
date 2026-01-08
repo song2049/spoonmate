@@ -25,6 +25,9 @@ model Admin {
 
   // ✅ 추가: 동적 자산 생성한 목록 (역관계)
   createdAssets AssetEntity[] @relation("AdminCreatedAssets")
+
+    // ... existing fields
+  permissionGrants AdminPermissionGrant[]
 }
 
 model Department {
@@ -145,6 +148,17 @@ enum DynamicFieldType {
   boolean
 }
 
+enum AssetSource {
+  MANUAL
+  CSV
+}
+
+enum AdminPermission {
+  ASSET_CSV_IMPORT
+  ASSET_TYPE_MANAGE
+  ADMIN_MANAGE
+}
+
 model AssetType {
   id        Int      @id @default(autoincrement())
   slug      String   @unique
@@ -185,9 +199,24 @@ model AssetEntity {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // ✅ 추가: 생성 경로 (수기/CSV)
+  source      AssetSource @default(MANUAL)
+
   type      AssetType @relation(fields: [typeId], references: [id])
   createdBy Admin?    @relation("AdminCreatedAssets", fields: [createdById], references: [id])
 
   @@index([typeId])
   @@index([createdById])
+}
+
+model AdminPermissionGrant {
+  id         Int             @id @default(autoincrement())
+  adminId    Int
+  permission AdminPermission
+  grantedAt  DateTime        @default(now())
+
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([adminId, permission])
+  @@index([adminId])
 }

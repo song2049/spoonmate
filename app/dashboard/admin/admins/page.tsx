@@ -1,9 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
 type AdminRole = "SUPER_ADMIN" | "ADMIN";
+type AdminPermission = "ASSET_CSV_IMPORT" | "ASSET_TYPE_MANAGE" | "ADMIN_MANAGE";
+
+type MeUser = {
+  adminId: number;
+  username: string;
+  name: string;
+  role: AdminRole;
+  isActive?: boolean;
+  permissions?: AdminPermission[];
+};
+
 type Admin = {
   id: number;
   username: string;
@@ -12,11 +24,25 @@ type Admin = {
   role: AdminRole;
   isActive: boolean;
   createdAt: string;
+
+  // ✅ 추가
+  permissions: AdminPermission[];
 };
 
+const PERMISSIONS: { key: AdminPermission; label: string }[] = [
+  { key: "ASSET_CSV_IMPORT", label: "CSV 업로드" },
+  { key: "ASSET_TYPE_MANAGE", label: "타입/필드 관리" },
+  { key: "ADMIN_MANAGE", label: "관리자 관리" },
+];
+
 export default function AdminsPage() {
+  const router = useRouter();
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const [me, setMe] = useState<MeUser | null>(null);
+  const [checkingPermission, setCheckingPermission] = useState(true);
+
   const [form, setForm] = useState({
     username: "",
     password: "",
@@ -30,14 +56,47 @@ export default function AdminsPage() {
     try {
       const { data } = await apiFetch<{ admins: Admin[] }>("/api/admins");
       setAdmins(data.admins);
+    } catch (e: any) {
+      // ✅ 정확한 에러 메시지 표시
+      const errorMessage = e?.message || "관리자 목록을 불러오는데 실패했습니다.";
+      console.error("[AdminsPage] Load error:", e);
+      alert(`오류: ${errorMessage}`);
+      // 여기서 router.push("/dashboard") 같은 처리도 가능
     } finally {
       setLoading(false);
     }
   };
 
+  // ✅ 권한 체크: SUPER_ADMIN 또는 ADMIN_MANAGE 권한이 있어야 접근 가능
   useEffect(() => {
-    load();
-  }, []);
+    const checkPermission = async () => {
+      try {
+        const { data } = await apiFetch<{ authenticated: boolean; user: MeUser }>("/api/auth/me");
+        const user = data.user;
+
+        // ✅ 권한 체크: SUPER_ADMIN이거나 ADMIN_MANAGE 권한이 있어야 함
+        const hasAccess =
+          user.role === "SUPER_ADMIN" || user.permissions?.includes("ADMIN_MANAGE");
+
+        if (!hasAccess) {
+          // 권한 없음: 대시보드로 리다이렉트
+          router.replace("/dashboard");
+          return;
+        }
+
+        setMe(user);
+        setCheckingPermission(false);
+        // 권한 확인 후 목록 로드
+        await load();
+      } catch (e: any) {
+        console.error("[AdminsPage] Permission check error:", e);
+        // 인증 실패 등은 대시보드로 리다이렉트
+        router.replace("/dashboard");
+      }
+    };
+
+    checkPermission();
+  }, [router]);
 
   const create = async () => {
     await apiFetch("/api/admins", {
@@ -60,7 +119,42 @@ export default function AdminsPage() {
     }
   };
 
-  if (loading) return <div className="p-6">Loading...</div>;
+  const togglePermission = async (id: number, permission: AdminPermission, enabled: boolean) => {
+    setSavingId(id);
+    try {
+      const { data } = await apiFetch<{ success: boolean; adminId: number; permissions: AdminPermission[] }>(
+        `/api/admins/${id}/permissions`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ permission, enabled }),
+        }
+      );
+
+      // ✅ 전체 reload 대신 해당 행만 즉시 반영
+      setAdmins((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, permissions: data.permissions } : a))
+      );
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "권한 변경 실패");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  // ✅ 권한 확인 중이거나 로딩 중
+  if (checkingPermission || loading) return <div className="p-6">Loading...</div>;
+
+  // ✅ 권한 없음 (이미 리다이렉트되었지만 방어 코드)
+  if (!me || (me.role !== "SUPER_ADMIN" && !me.permissions?.includes("ADMIN_MANAGE"))) {
+    return (
+      <div className="p-6">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+          <p className="font-medium">권한이 없습니다.</p>
+          <p className="text-sm mt-1">관리자 관리 페이지에 접근할 권한이 없습니다.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -69,20 +163,41 @@ export default function AdminsPage() {
         <p className="text-sm text-gray-500">슈퍼관리자 전용</p>
       </div>
 
+      {/* 관리자 생성 */}
       <div className="rounded-lg border p-4 space-y-3">
         <div className="font-medium">관리자 생성</div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input className="border rounded px-3 py-2" placeholder="username"
-            value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
-          <input className="border rounded px-3 py-2" placeholder="password" type="password"
-            value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-          <input className="border rounded px-3 py-2" placeholder="name"
-            value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <input className="border rounded px-3 py-2" placeholder="email"
-            value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <input
+            className="border rounded px-3 py-2"
+            placeholder="username"
+            value={form.username}
+            onChange={(e) => setForm({ ...form, username: e.target.value })}
+          />
+          <input
+            className="border rounded px-3 py-2"
+            placeholder="password"
+            type="password"
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+          />
+          <input
+            className="border rounded px-3 py-2"
+            placeholder="name"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+          <input
+            className="border rounded px-3 py-2"
+            placeholder="email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
 
-          <select className="border rounded px-3 py-2"
-            value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as AdminRole })}>
+          <select
+            className="border rounded px-3 py-2"
+            value={form.role}
+            onChange={(e) => setForm({ ...form, role: e.target.value as AdminRole })}
+          >
             <option value="ADMIN">ADMIN</option>
             <option value="SUPER_ADMIN">SUPER_ADMIN</option>
           </select>
@@ -93,6 +208,7 @@ export default function AdminsPage() {
         </button>
       </div>
 
+      {/* 관리자 목록 */}
       <div className="rounded-lg border">
         <div className="p-4 border-b font-medium">관리자 목록</div>
         <div className="p-4 overflow-x-auto">
@@ -105,41 +221,65 @@ export default function AdminsPage() {
                 <th className="py-2 pr-4">email</th>
                 <th className="py-2 pr-4">role</th>
                 <th className="py-2 pr-4">상태</th>
+                <th className="py-2 pr-4">권한</th>
                 <th className="py-2 pr-4">createdAt</th>
                 <th className="py-2 pr-4">액션</th>
               </tr>
             </thead>
             <tbody>
               {admins.map((a) => (
-                <tr key={a.id} className="border-t">
+                <tr key={a.id} className="border-t align-top">
                   <td className="py-2 pr-4">{a.id}</td>
                   <td className="py-2 pr-4">{a.username}</td>
                   <td className="py-2 pr-4">{a.name}</td>
                   <td className="py-2 pr-4">{a.email}</td>
+
                   <td className="py-2 pr-4">
                     <select
                       className="border rounded px-2 py-1 text-xs"
                       value={a.role}
-                      onChange={(e) =>
-                        updateAdmin(a.id, { role: e.target.value as AdminRole })
-                      }
+                      onChange={(e) => updateAdmin(a.id, { role: e.target.value as AdminRole })}
                     >
                       <option value="ADMIN">ADMIN</option>
                       <option value="SUPER_ADMIN">SUPER_ADMIN</option>
                     </select>
                   </td>
+
                   <td className="py-2 pr-4">
                     <span
                       className={`inline-flex rounded px-2 py-0.5 text-xs ${
-                        a.isActive
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700"
+                        a.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                       }`}
                     >
                       {a.isActive ? "활성" : "비활성"}
                     </span>
                   </td>
+
+                  {/* ✅ 권한 토글 */}
+                  <td className="py-2 pr-4">
+                    <div className="flex flex-col gap-2">
+                      {PERMISSIONS.map((p) => {
+                        const checked = a.permissions?.includes(p.key);
+                        const disabled = savingId === a.id;
+
+                        return (
+                          <label key={p.key} className="inline-flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={disabled}
+                              onChange={(e) => togglePermission(a.id, p.key, e.target.checked)}
+                            />
+                            <span className="text-xs">{p.label}</span>
+                          </label>
+                        );
+                      })}
+                      {savingId === a.id && <div className="text-xs text-gray-500">저장 중...</div>}
+                    </div>
+                  </td>
+
                   <td className="py-2 pr-4">{new Date(a.createdAt).toLocaleString()}</td>
+
                   <td className="py-2 pr-4">
                     <button
                       onClick={() => updateAdmin(a.id, { isActive: !a.isActive })}
@@ -156,6 +296,10 @@ export default function AdminsPage() {
               ))}
             </tbody>
           </table>
+
+          <div className="mt-3 text-xs text-gray-500">
+            * 권한은 기능별 토글로 관리됩니다. (CSV 업로드 권한 등)
+          </div>
         </div>
       </div>
     </div>

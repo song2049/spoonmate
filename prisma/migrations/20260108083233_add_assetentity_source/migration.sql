@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `AssetEntity` ADD COLUMN `source` ENUM('MANUAL', 'CSV') NOT NULL DEFAULT 'MANUAL';

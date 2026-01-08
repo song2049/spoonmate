@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/requireAdmin";
 import bcrypt from "bcrypt";
+import { requirePermission } from "@/lib/requirePermission";
 
 export async function GET(req: Request) {
   try {
-    requireSuperAdmin(req);
+    await requirePermission(req, "ADMIN_MANAGE"); // ✅ 접근권한 기반
 
     const admins = await prisma.admin.findMany({
       orderBy: { createdAt: "desc" },
@@ -17,11 +18,32 @@ export async function GET(req: Request) {
         role: true,
         isActive: true,
         createdAt: true,
+
+        // ✅ 추가: 권한(기능 제한) 목록
+        permissionGrants: {
+          select: { permission: true },
+        },
       },
     });
 
-    return NextResponse.json({ admins });
+    // ✅ 프론트 편의: permissions 배열로 내려주기
+    const normalized = admins.map((a) => ({
+      id: a.id,
+      username: a.username,
+      name: a.name,
+      email: a.email,
+      role: a.role,
+      isActive: a.isActive,
+      createdAt: a.createdAt,
+      permissions: a.permissionGrants.map((p) => p.permission),
+    }));
+
+    return NextResponse.json({ admins: normalized });
   } catch (e: any) {
+    // ✅ 전체 에러 스택 출력
+    console.error("[GET /api/admins] Full error:", e);
+    console.error("[GET /api/admins] Error stack:", e?.stack);
+    
     const msg = e?.message ?? "Server error";
     if (msg === "UNAUTHORIZED") return NextResponse.json({ error: "인증 필요" }, { status: 401 });
     if (msg === "FORBIDDEN") return NextResponse.json({ error: "권한 없음" }, { status: 403 });
@@ -64,6 +86,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, admin: created });
   } catch (e: any) {
+    // ✅ 전체 에러 스택 출력
+    console.error("[POST /api/admins] Full error:", e);
+    console.error("[POST /api/admins] Error stack:", e?.stack);
+    
     const msg = e?.message ?? "Server error";
     if (msg === "UNAUTHORIZED") return NextResponse.json({ error: "인증 필요" }, { status: 401 });
     if (msg === "FORBIDDEN") return NextResponse.json({ error: "권한 없음" }, { status: 403 });

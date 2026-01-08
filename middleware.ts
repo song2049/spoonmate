@@ -23,11 +23,15 @@ export function middleware(request: NextRequest) {
   // 보호 경로 (로그인 필요)
   const protectedPaths = ["/dashboard", "/assets"];
 
-  // 슈퍼관리자 전용 경로
-  const superOnlyPaths = ["/dashboard/admin"]; // 예: 관리자 관리 페이지들
+  //  // 슈퍼관리자 전용 경로
+  //  const superOnlyPaths = ["/dashboard/admin"]; // 예: 관리자 관리 페이지들
+  // const isSuperOnlyPath = superOnlyPaths.some((p) => pathname.startsWith(p));
+  
+  // ✅ 슈퍼관리자 전용 경로 제거
+  // 실제 권한 체크는 페이지/API 레벨에서 수행 (AdminPermissionGrant 기반)
+  // const superOnlyPaths = ["/dashboard/admin"]; // 제거: 페이지 레벨에서 권한 체크
 
   const isProtectedPath = protectedPaths.some((p) => pathname.startsWith(p));
-  const isSuperOnlyPath = superOnlyPaths.some((p) => pathname.startsWith(p));
 
   console.log("[MW] PATH:", pathname, {
     hasToken: !!token,
@@ -35,7 +39,7 @@ export function middleware(request: NextRequest) {
   });
 
   // 1) 보호된 경로인데 토큰 없으면 로그인
-  if ((isProtectedPath || isSuperOnlyPath) && !token) {
+  if (isProtectedPath && !token) {
     console.log("[MW BLOCKED] No token:", pathname);
     const url = new URL("/login", request.url);
     url.searchParams.set("next", pathname);
@@ -51,11 +55,9 @@ export function middleware(request: NextRequest) {
 
       console.log("[MW] Token valid:", { username: payload.username, role });
 
-      // ✅ 슈퍼전용 경로 접근 차단
-      if (isSuperOnlyPath && role !== "SUPER_ADMIN") {
-        console.log("[MW BLOCKED] Forbidden (need SUPER_ADMIN):", pathname);
-        return NextResponse.redirect(new URL("/dashboard/admin", request.url));
-      }
+      // ✅ 슈퍼전용 경로 체크 제거
+      // 실제 권한 체크는 페이지/API 레벨에서 수행
+      // (AdminPermissionGrant 기반으로 ADMIN_MANAGE 권한 체크)
 
       // ✅ 로그인 상태에서 /login 접근하면 /dashboard로
       if (pathname === "/login") {
@@ -73,7 +75,7 @@ export function middleware(request: NextRequest) {
 
       // 유효하지 않은 토큰이면 쿠키 삭제
       // 보호된 경로면 로그인으로
-      if (isProtectedPath || isSuperOnlyPath) {
+      if (isProtectedPath) {
         console.log("[MW BLOCKED] Invalid token on protected path:", pathname);
         const res = NextResponse.redirect(new URL("/login", request.url));
         res.cookies.delete("auth_token");

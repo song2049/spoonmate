@@ -5,11 +5,14 @@ import Link from "next/link";
 import { fetchSoftwareAssets, apiFetch } from "@/lib/api"; // ✅ apiFetch 추가
 
 type AdminRole = "SUPER_ADMIN" | "ADMIN";
+type AdminPermission = "ASSET_CSV_IMPORT" | "ASSET_TYPE_MANAGE" | "ADMIN_MANAGE";
 type MeUser = {
   adminId: number;
   username: string;
   name: string;
   role: AdminRole;
+  isActive?: boolean;
+  permissions?: AdminPermission[];
 };
 
 type Asset = {
@@ -275,8 +278,8 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* ✅ 슈퍼관리자 버튼 (최소 추가) */}
-            {me?.role === "SUPER_ADMIN" && (
+            {/* ✅ 관리자 관리 버튼: SUPER_ADMIN 또는 ADMIN_MANAGE 권한이 있으면 표시 */}
+            {(me?.role === "SUPER_ADMIN" || me?.permissions?.includes("ADMIN_MANAGE")) && (
               <PillButton href="/dashboard/admin/admins">
                 관리자 관리
               </PillButton>
