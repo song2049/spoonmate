@@ -1,26 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/requireAdmin";
 
-function extractSlugFromUrl(url: string) {
-  // 예: http://localhost:3000/api/catalog/types/software_generic?x=1
-  const u = new URL(url);
-  const parts = u.pathname.split("/").filter(Boolean);
-  // ["api","catalog","types","software_generic"]
-  return parts[parts.length - 1] || null;
-}
+type Ctx = {
+  params: Promise<{ slug: string }>;
+};
 
-export async function GET(
-  req: Request,
-  ctx: { params?: { slug?: string } }
-) {
+export async function GET(req: NextRequest, { params }: Ctx) {
   try {
     requireAdmin(req);
 
-    const slug = ctx?.params?.slug ?? extractSlugFromUrl(req.url);
+    const { slug } = await params;
 
-    console.log("[types/[slug]] ctx.params:", ctx?.params, "slug:", slug);
-
+    // 기존 방어 로직 유지
     if (!slug || slug === "types") {
       return NextResponse.json(
         { error: "slug param missing" },
@@ -57,11 +49,16 @@ export async function GET(
     }
 
     return NextResponse.json({ type });
-  } catch (e: any) {
-    const msg = e?.message ?? "Server error";
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Server error";
+
     if (msg === "UNAUTHORIZED") {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+      return NextResponse.json(
+        { error: "인증이 필요합니다." },
+        { status: 401 }
+      );
     }
+
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
