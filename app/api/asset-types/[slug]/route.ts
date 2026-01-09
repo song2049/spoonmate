@@ -1,11 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { slug: string } }
-) {
-  const slug = params.slug;
+type Ctx = {
+  params: Promise<{ slug: string }>;
+};
+
+export async function GET(_req: NextRequest, { params }: Ctx) {
+  const { slug } = await params;
 
   const item = await prisma.assetType.findUnique({
     where: { slug },
