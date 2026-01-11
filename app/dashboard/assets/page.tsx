@@ -4,6 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 
+type AdminPermission = "ASSET_CSV_IMPORT" | "ASSET_TYPE_MANAGE" | "ADMIN_MANAGE";
+type MeUser = {
+  adminId: number;
+  username: string;
+  name: string;
+  role: "SUPER_ADMIN" | "ADMIN";
+  permissions?: AdminPermission[];
+};
+
 type AssetType = { id: number; slug: string; name: string };
 
 type Asset = {
@@ -23,11 +32,31 @@ export default function DynamicAssetsPage() {
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
 
+  // CSV 업로드
+  const [me, setMe] = useState<MeUser | null>(null);
+  const [csvTypeSlug, setCsvTypeSlug] = useState<string>("");
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvUploading, setCsvUploading] = useState(false);
+  const [csvResult, setCsvResult] = useState<null | {
+    typeSlug: string;
+    successCount: number;
+    failCount: number;
+    errors: Array<{ row: number; field?: string; reason: string }>;
+  }>(null);
+
   async function load() {
     setLoading(true);
     try {
+      // 권한/유저 정보
+      const meRes = await apiFetch<{ authenticated: boolean; user: MeUser }>("/api/auth/me");
+      setMe(meRes.data.user);
+
       const t = await apiFetch<{ types: AssetType[] }>("/api/catalog/types", { cache: "no-store" });
-      setTypes(t.data.types ?? []);
+      const loadedTypes = t.data.types ?? [];
+      setTypes(loadedTypes);
+      if (!csvTypeSlug && loadedTypes.length > 0) {
+        setCsvTypeSlug(loadedTypes[0].slug);
+      }
 
       const qs = new URLSearchParams();
       if (q.trim()) qs.set("q", q.trim());
@@ -40,10 +69,61 @@ export default function DynamicAssetsPage() {
     }
   }
 
+  const hasCsvPermission =
+    me?.role === "SUPER_ADMIN" || me?.permissions?.includes("ASSET_CSV_IMPORT");
+
+  const uploadCsv = async () => {
+    if (!hasCsvPermission) {
+      alert("CSV 업로드 권한이 없습니다.");
+      return;
+    }
+    const slug = (csvTypeSlug || type || "").trim();
+    if (!slug) {
+      alert("CSV 업로드 대상 자산 유형(type)을 선택해주세요.");
+      return;
+    }
+    if (!csvFile) {
+      alert("CSV 파일을 선택해주세요.");
+      return;
+    }
+
+    setCsvUploading(true);
+    setCsvResult(null);
+    try {
+      const fd = new FormData();
+      fd.append("typeSlug", slug);
+      fd.append("file", csvFile);
+
+      const res = await fetch("/api/assets/dynamic/import-csv", {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+      });
+
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(j?.error || "CSV 업로드 실패");
+      }
+
+      setCsvResult(j);
+      setCsvFile(null);
+      // 업로드 후 목록 새로고침
+      await load();
+    } catch (e: any) {
+      alert(e?.message || "CSV 업로드 실패");
+    } finally {
+      setCsvUploading(false);
+    }
+  };
+
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const canCsvImport =
+    me?.role === "SUPER_ADMIN" || me?.permissions?.includes("ASSET_CSV_IMPORT");
+
 
   const countByType = useMemo(() => {
     const map = new Map<string, number>();
@@ -110,6 +190,87 @@ export default function DynamicAssetsPage() {
             필터 적용
           </button>
         </div>
+      </div>
+
+      {/* CSV 업로드 */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-xs text-gray-500">CSV Import</div>
+            <h2 className="mt-1 text-lg font-semibold">CSV 업로드</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              자산을 대량 등록합니다. (권한: CSV 업로드)
+            </p>
+          </div>
+
+          <a
+            href="/docs/CSV_IMPORT_GUIDE.md"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm hover:bg-gray-50"
+          >
+            CSV 가이드 보기
+          </a>
+        </div>
+
+        {!canCsvImport ? (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            CSV 업로드 권한이 없습니다. 관리자관리 페이지에서 <span className="font-medium">CSV 업로드</span> 권한을 부여해주세요.
+          </div>
+        ) : (
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            <div className="space-y-2">
+              <div className="text-sm font-medium">자산 유형</div>
+              <select
+                className="rounded-lg border border-gray-200 px-3 py-2 text-sm w-full"
+                value={csvTypeSlug}
+                onChange={(e) => setCsvTypeSlug(e.target.value)}
+              >
+                {types.map((t) => (
+                  <option key={t.id} value={t.slug}>
+                    {t.name} ({t.slug})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-sm font-medium">CSV 파일</div>
+              <input
+                className="rounded-lg border border-gray-200 px-3 py-2 text-sm w-full"
+                type="file"
+                accept="text/csv,.csv"
+                onChange={(e) => setCsvFile(e.target.files?.[0] || null)}
+              />
+            </div>
+
+            <button
+              onClick={uploadCsv}
+              disabled={csvUploading}
+              className="rounded-lg bg-black text-white px-4 py-2 text-sm disabled:opacity-50"
+            >
+              {csvUploading ? "업로드 중..." : "업로드"}
+            </button>
+          </div>
+        )}
+
+        {csvResult ? (
+          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm">
+            <div className="font-medium">결과</div>
+            <div className="mt-1">
+              성공: <span className="font-medium">{csvResult.successCount}</span>건 · 실패: <span className="font-medium">{csvResult.failCount}</span>건
+            </div>
+            {csvResult.errors?.length ? (
+              <div className="mt-2 max-h-40 overflow-auto rounded border bg-white p-2 text-xs">
+                {csvResult.errors.map((er, idx) => (
+                  <div key={idx} className="py-1 border-b last:border-b-0">
+                    Row {er.row} {er.field ? `(${er.field})` : ""}: {er.reason}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {/* List */}

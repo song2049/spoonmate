@@ -19,26 +19,20 @@ async function getBrand() {
   });
 }
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    // 인증 필수 (로그인 페이지에서 헤더를 숨기지 않는 현재 구조를 고려)
-    requireAdmin(req);
-
     const brand = await getBrand();
     return NextResponse.json({
       companyName: brand.companyName,
       logoUrl: brand.logoUrl,
       updatedAt: brand.updatedAt,
     });
-  } catch (e: any) {
-    const message = e instanceof Error ? e.message : "Server error";
-    if (message === "UNAUTHORIZED") {
-      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-    }
+  } catch (e) {
     console.error("[GET /api/brand] error:", e);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
+
 
 export async function PATCH(req: Request) {
   try {

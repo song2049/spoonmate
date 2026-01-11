@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/requireAdmin";
+import bcrypt from "bcrypt";
 
 export async function PATCH(
   req: Request,
@@ -17,17 +18,33 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { role, isActive } = body as {
+    const { role, isActive, newPassword } = body as {
       role?: "SUPER_ADMIN" | "ADMIN";
       isActive?: boolean;
+      newPassword?: string;
     };
 
     // ✅ 자기 자신 변경 제한(운영 안정장치)
-    if (me.adminId === id) {
+    // - role/isActive는 본인 변경 금지
+    // - 비밀번호는 SUPER_ADMIN이면 본인 포함 변경 가능(운영/복구 편의)
+    if (me.adminId === id && (role || typeof isActive === "boolean")) {
       return NextResponse.json(
-        { error: "본인 계정은 변경할 수 없습니다." },
+        { error: "본인 계정의 권한/활성 상태는 변경할 수 없습니다." },
         { status: 400 }
       );
+    }
+
+    // ✅ 비밀번호 변경(관리자 화면에서 리셋)
+    let passwordHash: string | null = null;
+    if (typeof newPassword === "string") {
+      const pw = newPassword.trim();
+      if (pw.length < 8) {
+        return NextResponse.json(
+          { error: "비밀번호는 8자 이상이어야 합니다." },
+          { status: 400 }
+        );
+      }
+      passwordHash = await bcrypt.hash(pw, 10);
     }
 
     const updated = await prisma.admin.update({
@@ -35,6 +52,7 @@ export async function PATCH(
       data: {
         ...(role ? { role } : {}),
         ...(typeof isActive === "boolean" ? { isActive } : {}),
+        ...(passwordHash ? { password: passwordHash } : {}),
       },
       select: {
         id: true,

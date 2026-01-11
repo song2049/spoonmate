@@ -42,6 +42,8 @@ export default function AdminsPage() {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [pwDraft, setPwDraft] = useState<Record<number, string>>({});
+  const [pwSavingId, setPwSavingId] = useState<number | null>(null);
   const [me, setMe] = useState<MeUser | null>(null);
   const [checkingPermission, setCheckingPermission] = useState(true);
 
@@ -170,6 +172,32 @@ export default function AdminsPage() {
       await load();
     } catch (error) {
       alert(error instanceof Error ? error.message : "업데이트 실패");
+    }
+  };
+
+  const updatePassword = async (id: number) => {
+    const newPassword = (pwDraft[id] ?? "").trim();
+    if (!newPassword) {
+      alert("새 비밀번호를 입력해주세요.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      alert("비밀번호는 8자 이상이어야 합니다.");
+      return;
+    }
+
+    setPwSavingId(id);
+    try {
+      await apiFetch(`/api/admins/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ newPassword }),
+      });
+      setPwDraft((prev) => ({ ...prev, [id]: "" }));
+      alert("비밀번호가 변경되었습니다.");
+    } catch (e: any) {
+      alert(e?.message || "비밀번호 변경 실패");
+    } finally {
+      setPwSavingId(null);
     }
   };
 
@@ -332,6 +360,7 @@ export default function AdminsPage() {
                 <th className="py-2 pr-4">상태</th>
                 <th className="py-2 pr-4">권한</th>
                 <th className="py-2 pr-4">createdAt</th>
+                <th className="py-2 pr-4">비밀번호</th>
                 <th className="py-2 pr-4">액션</th>
               </tr>
             </thead>
@@ -388,6 +417,32 @@ export default function AdminsPage() {
                   </td>
 
                   <td className="py-2 pr-4">{new Date(a.createdAt).toLocaleString()}</td>
+
+                  <td className="py-2 pr-4">
+                    <div className="flex items-center gap-2">
+                      <input
+                        className="border rounded px-2 py-1 text-xs"
+                        type="password"
+                        placeholder="새 비밀번호(8자+)"
+                        value={pwDraft[a.id] ?? ""}
+                        onChange={(e) =>
+                          setPwDraft((prev) => ({ ...prev, [a.id]: e.target.value }))
+                        }
+                      />
+                      <button
+                        onClick={() => updatePassword(a.id)}
+                        disabled={pwSavingId === a.id}
+                        className="rounded px-2 py-1 text-xs bg-gray-900 text-white disabled:opacity-50"
+                      >
+                        {pwSavingId === a.id ? "변경 중..." : "변경"}
+                      </button>
+                    </div>
+                    {a.id === me.adminId ? (
+                      <div className="mt-1 text-[11px] text-gray-500">
+                        * 본인 계정도 비밀번호 변경은 가능합니다.
+                      </div>
+                    ) : null}
+                  </td>
 
                   <td className="py-2 pr-4">
                     <button
