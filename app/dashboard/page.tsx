@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import BrandBadge from "../components/BrandBadge";
 import { fetchSoftwareAssets, apiFetch } from "@/lib/api"; // ✅ apiFetch 추가
 
 type AdminRole = "SUPER_ADMIN" | "ADMIN";
@@ -264,10 +265,7 @@ export default function DashboardPage() {
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-              <span className="inline-block h-2 w-2 rounded-full bg-gray-700" />
-              SpoonMate • Asset Ops
-            </div>
+            <BrandBadge suffix="Asset Ops" />
 
             <h1 className="mt-3 text-2xl font-semibold tracking-tight">
               대시보드

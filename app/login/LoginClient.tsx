@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useBrand } from "@/app/components/BrandProvider";
 
 export default function LoginClient() {
   const router = useRouter();
   const sp = useSearchParams();
+  const { brand } = useBrand();
 
   const nextPath = useMemo(() => sp.get("next") || "/dashboard", [sp]);
 
@@ -50,7 +52,7 @@ export default function LoginClient() {
   return (
     <main className="min-h-screen grid place-items-center p-6">
       <div className="w-full max-w-md rounded-2xl border p-6 shadow-sm">
-        <h1 className="text-2xl font-semibold">SpoonMate Login</h1>
+        <h1 className="text-2xl font-semibold">{brand.companyName} Login</h1>
         <p className="text-sm opacity-70 mt-1">
           테스트 계정: <span className="font-mono">admin / admin123</span>
         </p>

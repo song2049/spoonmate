@@ -4,10 +4,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useRef, useEffect } from "react";
+import { useBrand } from "./BrandProvider";
 
 export default function Header() {
   const router = useRouter();
   const isLoggingOut = useRef(false);
+  const { brand } = useBrand();
 
   // ✅ 일회성: 기존 localStorage 토큰 정리 (쿠키 단일 소스 마이그레이션)
   useEffect(() => {
@@ -48,14 +50,14 @@ export default function Header() {
       <div className="flex items-center justify-between gap-3 px-6 py-3">
         <Link href="/dashboard" className="flex items-center gap-3">
           <Image
-            src="/spoonmate.png"
-            alt="SpoonMate Logo"
+            src={brand.logoUrl || "/spoonmate.png"}
+            alt={`${brand.companyName} Logo`}
             width={100}
             height={0}
             className="object-contain"
           />
           <span className="text-lg font-semibold tracking-tight text-gray-900">
-            SpoonMate
+            {brand.companyName}
           </span>
         </Link>
 

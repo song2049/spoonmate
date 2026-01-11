@@ -220,3 +220,12 @@ model AdminPermissionGrant {
   @@unique([adminId, permission])
   @@index([adminId])
 }
+
+// ✅ 앱 전역 브랜드(로고/사명) 설정 - 단일 row(id=1)를 upsert로 운용
+model AppBrand {
+  id          Int      @id @default(1)
+  companyName String   @default("SpoonMate")
+  logoUrl     String?  // 예: /uploads/brand-logo-1700000000000.png
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

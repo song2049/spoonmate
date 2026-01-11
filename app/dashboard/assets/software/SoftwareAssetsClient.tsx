@@ -3,6 +3,7 @@
 "use client";
 
 import Link from "next/link";
+import BrandBadge from "@/app/components/BrandBadge";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
@@ -129,10 +130,7 @@ export default function SoftwareAssetsClient() {
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-              <span className="inline-block h-2 w-2 rounded-full bg-gray-700" />
-              SpoonMate • Software Assets
-            </div>
+            <BrandBadge suffix="Software Assets" />
 
             <h1 className="mt-3 text-2xl font-semibold tracking-tight">
               소프트웨어 자산

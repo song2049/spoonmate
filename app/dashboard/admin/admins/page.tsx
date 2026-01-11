@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import { useBrand } from "@/app/components/BrandProvider";
 
 type AdminRole = "SUPER_ADMIN" | "ADMIN";
 type AdminPermission = "ASSET_CSV_IMPORT" | "ASSET_TYPE_MANAGE" | "ADMIN_MANAGE";
@@ -37,11 +38,18 @@ const PERMISSIONS: { key: AdminPermission; label: string }[] = [
 
 export default function AdminsPage() {
   const router = useRouter();
+  const { brand, setBrand, refresh: refreshBrand } = useBrand();
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [me, setMe] = useState<MeUser | null>(null);
   const [checkingPermission, setCheckingPermission] = useState(true);
+
+  // ✅ 전역 브랜드 설정(사명/로고)
+  const [brandName, setBrandName] = useState<string>(brand.companyName);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [brandSaving, setBrandSaving] = useState(false);
+  const [brandPreviewUrl, setBrandPreviewUrl] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     username: "",
@@ -97,6 +105,52 @@ export default function AdminsPage() {
 
     checkPermission();
   }, [router]);
+
+  // brand context가 갱신되면 입력값도 동기화
+  useEffect(() => {
+    setBrandName(brand.companyName);
+  }, [brand.companyName]);
+
+  useEffect(() => {
+    if (!logoFile) {
+      setBrandPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(logoFile);
+    setBrandPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [logoFile]);
+
+  const saveBrand = async () => {
+    setBrandSaving(true);
+    try {
+      const fd = new FormData();
+      fd.append("companyName", brandName);
+      if (logoFile) fd.append("logo", logoFile);
+
+      const res = await fetch("/api/brand", {
+        method: "PATCH",
+        body: fd,
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error || "브랜드 설정 저장 실패");
+      }
+
+      const j = await res.json();
+      // ✅ 즉시 전역 반영(헤더/배지)
+      setBrand({ companyName: j.companyName, logoUrl: j.logoUrl });
+      setLogoFile(null);
+      await refreshBrand();
+      alert("브랜드 설정이 저장되었습니다.");
+    } catch (e: any) {
+      alert(e?.message || "브랜드 설정 저장 실패");
+    } finally {
+      setBrandSaving(false);
+    }
+  };
 
   const create = async () => {
     await apiFetch("/api/admins", {
@@ -161,6 +215,61 @@ export default function AdminsPage() {
       <div>
         <h1 className="text-xl font-semibold">관리자 계정 관리</h1>
         <p className="text-sm text-gray-500">슈퍼관리자 전용</p>
+      </div>
+
+      {/* ✅ 브랜드 설정 */}
+      <div className="rounded-lg border p-4 space-y-3">
+        <div>
+          <div className="font-medium">브랜드 설정</div>
+          <div className="text-xs text-gray-500 mt-1">
+            헤더 로고/사명 및 페이지 상단 배지(예: <span className="font-medium">{brand.companyName} • Asset Ops</span>)에
+            즉시 반영됩니다.
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">사명</label>
+            <input
+              className="border rounded px-3 py-2 w-full"
+              placeholder="회사명"
+              value={brandName}
+              onChange={(e) => setBrandName(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">로고 이미지</label>
+            <input
+              className="border rounded px-3 py-2 w-full"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+            />
+            <div className="text-xs text-gray-500">권장: 투명 PNG, 가로형 로고</div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="rounded border bg-white px-3 py-2 text-sm flex items-center gap-2">
+            <span className="text-gray-500">미리보기:</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={brandPreviewUrl || brand.logoUrl || "/spoonmate.png"}
+              alt="logo preview"
+              className="h-6 w-auto object-contain"
+            />
+            <span className="font-medium">{brandName || "(사명)"}</span>
+          </div>
+
+          <button
+            onClick={saveBrand}
+            disabled={brandSaving}
+            className="rounded bg-black text-white px-4 py-2 text-sm disabled:opacity-50"
+          >
+            {brandSaving ? "저장 중..." : "브랜드 저장"}
+          </button>
+        </div>
       </div>
 
       {/* 관리자 생성 */}

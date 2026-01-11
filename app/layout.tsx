@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Header from "./components/Header";
+import { BrandProvider } from "./components/BrandProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,11 +29,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-gray-50`}
       >
-        {/* 상단 헤더 - 로고 및 로그아웃 */}
-        <Header />
+        <BrandProvider>
+          {/* 상단 헤더 - 로고 및 로그아웃 */}
+          <Header />
 
-        {/* 메인 콘텐츠 */}
-        <main>{children}</main>
+          {/* 메인 콘텐츠 */}
+          <main>{children}</main>
+        </BrandProvider>
       </body>
     </html>
   );
